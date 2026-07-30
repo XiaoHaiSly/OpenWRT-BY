@@ -13,12 +13,8 @@ return view.extend({
 
 		m = new form.Map('substore', _('Sub-Store'), null);
 
-		// ── 高级设置 ────────────────────────────────────────────
 		s = m.section(form.NamedSection, 'config', 'substore', _('高级设置'));
 		s.anonymous = true;
-
-		o = s.option(form.Value, 'backend_custom_icon', _('自定义图标URL'), _('显示在前端界面上的后端图标'));
-		o.placeholder = 'https://example.com/icon.png';
 
 		o = s.option(form.Value, 'x_powered_by', _('X-Powered-By 响应头'), _('自定义 HTTP 响应头中的 X-Powered-By 字段'));
 		o.placeholder = 'Express';
@@ -35,7 +31,6 @@ return view.extend({
 		o.default = '1mb';
 		o.placeholder = '1mb';
 
-		// ── 推送通知 ────────────────────────────────────────────
 		s = m.section(form.NamedSection, 'config', 'substore', _('推送通知'));
 		s.anonymous = true;
 

@@ -3,24 +3,27 @@
 'require form';
 'require uci';
 
-// 校验监听地址：只允许 ::（IPv6 全部地址）、0.0.0.0（IPv4 全部地址）、
-// 127.0.0.1（仅本机回环）这三个精确值，其余一律视为非法——不再放行
-// 任意合法 IPv4/IPv6，避免监听到不该监听的地址上。
 function validateHost(value) {
 	if (!value || value.trim() === '') return true;
 	var v = value.trim();
 
 	if (v === '::' || v === '0.0.0.0' || v === '127.0.0.1') return true;
 
-	return _('监听地址只能是 ::（IPv4+IPv6）、0.0.0.0（仅IPv4）或 127.0.0.1（仅本机）');
+	return _('监听地址只能是 ::（IPv4+IPv6）、0.0.0.0（仅IPv4）');
 }
 
-// 校验代理地址：必须以支持的协议开头，且后面有实际内容
 function validateProxy(value) {
 	if (!value || value.trim() === '') return true;
 	var v = value.trim();
 	if (/^(http|https|socks5):\/\/.+/.test(v)) return true;
 	return _('代理地址必须以 http://、https:// 或 socks5:// 开头');
+}
+
+function validateDownloadProxy(value) {
+	if (!value || value.trim() === '') return true;
+	var v = value.trim();
+	if (/^https?:\/\/.+/.test(v)) return true;
+	return _('加速代理地址必须以 http:// 或 https:// 开头');
 }
 
 return view.extend({
@@ -52,6 +55,16 @@ return view.extend({
 		o.validate = function(section_id, value) {
 			return validateProxy(value);
 		};
+
+		o = s.option(form.Value, 'download_proxy', _('更新加速代理'), _('点击"更新前端/后端"时，用于加速下载资源的反代地址前缀。留空则直连 GitHub'));
+		o.placeholder = 'https://ghfast.top/';
+		o.validate = function(section_id, value) {
+			return validateDownloadProxy(value);
+		};
+
+		o = s.option(form.Value, 'github_token', _('GitHub 令牌'), _('查询版本号时携带此令牌请求 GitHub API，留空则匿名请求。'));
+		o.password = true;
+		o.placeholder = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
 		return m.render();
 	}
