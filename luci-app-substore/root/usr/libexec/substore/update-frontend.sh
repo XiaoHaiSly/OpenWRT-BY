@@ -7,17 +7,16 @@ if [ "$SOURCE" != "proxy" ] && [ "$SOURCE" != "official" ]; then
 	exit 1
 fi
 
-NODE=$(command -v node)
-MV=$(command -v mv)
-RM=$(command -v rm)
-FIND=$(command -v find)
-UNZIP=$(command -v unzip)
+NODE=$(command -v node) || NODE=""
+MV=$(command -v mv) || MV=""
+RM=$(command -v rm) || RM=""
+FIND=$(command -v find) || FIND=""
+UNZIP=$(command -v unzip) || UNZIP=""
 
 ZIP_PATH=/tmp/dist.zip
 DIST_PATH=/www/sub-store/dist
 DIST_NEW_PATH=/www/sub-store/dist.new
 PROXY_PREFIX=$(uci -q get substore.config.download_proxy) || PROXY_PREFIX=""
-# 容错处理：去掉末尾可能存在的斜杠，再统一补一个，这样加速地址结尾加不加 / 都能正常拼接
 PROXY_PREFIX="${PROXY_PREFIX%/}"
 [ -n "$PROXY_PREFIX" ] && PROXY_PREFIX="$PROXY_PREFIX/"
 GITHUB_TOKEN=$(uci -q get substore.config.github_token) || GITHUB_TOKEN=""

@@ -7,13 +7,12 @@ if [ "$SOURCE" != "proxy" ] && [ "$SOURCE" != "official" ]; then
 	exit 1
 fi
 
-NODE=$(command -v node)
-MV=$(command -v mv)
-RM=$(command -v rm)
+NODE=$(command -v node) || NODE=""
+MV=$(command -v mv) || MV=""
+RM=$(command -v rm) || RM=""
 BUNDLE=/usr/libexec/substore/sub-store.bundle.js
 TMP="$BUNDLE.tmp"
 PROXY_PREFIX=$(uci -q get substore.config.download_proxy) || PROXY_PREFIX=""
-# 容错处理：去掉末尾可能存在的斜杠，再统一补一个，这样加速地址结尾加不加 / 都能正常拼接
 PROXY_PREFIX="${PROXY_PREFIX%/}"
 [ -n "$PROXY_PREFIX" ] && PROXY_PREFIX="$PROXY_PREFIX/"
 GITHUB_TOKEN=$(uci -q get substore.config.github_token) || GITHUB_TOKEN=""
