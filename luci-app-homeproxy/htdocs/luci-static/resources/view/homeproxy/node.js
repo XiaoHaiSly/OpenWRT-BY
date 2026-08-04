@@ -22,6 +22,40 @@ const callUpdateSubscription = rpc.declare({
 	expect: { '': {} }
 });
 
+const callFileWrite = rpc.declare({
+	object: 'file',
+	method: 'write',
+	params: ['path', 'data', 'append', 'mode']
+});
+
+/* ubus/rpcd caps how much data a single call can carry, so large config
+ * files (e.g. subscriptions with many nodes) must be written in chunks
+ * or the browser aborts the request. Mirrors the approach used by
+ * luci-app-momo's editor. */
+function writeFileChunked(path, data) {
+	data = (data != null) ? String(data) : '';
+
+	const encoder = new TextEncoder();
+	const decoder = new TextDecoder();
+	const chunkSize = 8 * 1024;
+
+	const bytes = encoder.encode(data);
+
+	if (bytes.length <= chunkSize)
+		return callFileWrite(path, data, false, 0o644);
+
+	let promise = Promise.resolve();
+	for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+		const chunkEnd = Math.min(offset + chunkSize, bytes.length);
+		const isLastChunk = chunkEnd === bytes.length;
+		const chunk = decoder.decode(bytes.slice(offset, chunkEnd), { stream: !isLastChunk });
+		const append = offset > 0;
+		promise = promise.then(() => callFileWrite(path, chunk, append, 0o644));
+	}
+
+	return promise;
+}
+
 function allowInsecureConfirm(ev, _section_id, value) {
 	if (value === '1' && !confirm(_('Are you sure to allow insecure?')))
 		ev.target.firstElementChild.checked = null;
@@ -1226,7 +1260,27 @@ return view.extend({
 			uci.load('homeproxy'),
 			hp.getBuiltinFeatures()
 		]).then((res) => {
-			return cleanupOrphanSubscriptionFiles().catch(() => {}).then(() => res);
+			return cleanupOrphanSubscriptionFiles().catch(() => {}).then(() => {
+				return L.resolveDefault(fs.list('/etc/homeproxy/custom'), []);
+			}).then((files) => {
+				res.push(files);
+				return res;
+			});
+		});
+	},
+
+	/* The Core Config Editor tab writes a plain file outside UCI, so a
+	 * save there produces no UCI diff. Only hand off to the normal
+	 * "apply changes" flow (which shows the pending-changes dialog and
+	 * triggers a service reload) when there is an actual UCI diff to
+	 * apply; otherwise just save silently, with no popup and no
+	 * automatic restart. */
+	handleSaveApply(ev, mode) {
+		return this.handleSave(ev).then(() => {
+			return uci.changes().then((changes) => {
+				if (changes && Object.keys(changes).length)
+					return ui.changes.apply(mode);
+			});
 		});
 	},
 
@@ -1414,7 +1468,7 @@ return view.extend({
 		o.rmempty = false;
 
 		o = s.taboption('subscription', form.Value, 'user_agent', _('User-Agent'));
-		o.placeholder = 'Wget/1.21 (HomeProxy, like v2rayN)';
+		o.placeholder = 'v2rayNG/2.3.2';
 
 		o = s.taboption('subscription', form.Flag, 'allow_insecure', _('Allow insecure'),
 			_('Allow insecure connection by default when add nodes from subscriptions.') +
@@ -1577,10 +1631,10 @@ return view.extend({
 		so.rmempty = false;
 
 		so = ss.option(form.Value, 'user_agent', _('User Agent'));
-		so.default = 'Wget/1.21 (HomeProxy, like v2rayN)';
+		so.default = 'sing-box/1.13.16';
 		so.modalonly = true;
 		so.rmempty = false;
-		so.value('Wget/1.21 (HomeProxy, like v2rayN)');
+		so.value('sing-box/1.13.16');
 
 		so = ss.option(form.ListValue, 'prefer', _('Prefer'));
 		so.default = 'local';
@@ -1589,6 +1643,55 @@ return view.extend({
 		so.value('remote', _('Remote'));
 		so.value('local', _('Local'));
 		/* Core config settings end */
+
+		/* Core config editor start */
+		s.tab('core_config_editor', _('Core Config Editor'));
+
+		let editor_files = [];
+		for (let entry of (data[2] || [])) {
+			if (entry.type === 'file')
+				editor_files.push({
+					path: `/etc/homeproxy/custom/${entry.name}`,
+					title: entry.name
+				});
+		}
+		uci.sections(data[0], 'custom_profile', (sec) => {
+			editor_files.push({
+				path: `/etc/homeproxy/custom/.subscriptions/${sec['.name']}.json`,
+				title: _('Subscription: %s').format(sec.label || sec['.name'])
+			});
+		});
+
+		o = s.taboption('core_config_editor', form.ListValue, '_editor_file', _('Choose File'));
+		o.optional = true;
+		o.rmempty = true;
+		for (let f of editor_files)
+			o.value(f.path, f.title);
+		o.write = function(section_id, formvalue) {
+			return true;
+		};
+		o.onchange = function(ev, section_id, value) {
+			const textopt = m.lookupOption('_editor_content', section_id)[0];
+			if (!value) {
+				textopt.getUIElement(section_id).setValue('');
+				return;
+			}
+			return L.resolveDefault(fs.read_direct(value, 'text'), '').then((content) => {
+				textopt.getUIElement(section_id).setValue(content);
+			});
+		};
+
+		o = s.taboption('core_config_editor', form.TextValue, '_editor_content', _('File Content'));
+		o.rows = 25;
+		o.wrap = false;
+		o.monospace = true;
+		o.write = function(section_id, formvalue) {
+			const path = m.lookupOption('_editor_file', section_id)[0].formvalue(section_id);
+			if (!path)
+				return;
+			return writeFileChunked(path, formvalue);
+		};
+		/* Core config editor end */
 
 		return m.render();
 	}

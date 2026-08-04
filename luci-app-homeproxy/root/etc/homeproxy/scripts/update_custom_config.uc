@@ -59,7 +59,7 @@ function fetchHeaders(url, ua) {
 		return null;
 
 	const result = executeCommand(
-		`/usr/bin/wget -O /dev/null -S --user-agent ${shellQuote(ua || 'Wget/1.21 (HomeProxy, like v2rayN)')} --timeout=10 ${shellQuote(url)}`
+		`/usr/bin/wget -O /dev/null -S --user-agent ${shellQuote(ua || 'sing-box/1.13.16')} --timeout=10 ${shellQuote(url)}`
 	);
 
 	return result?.stderr || null;

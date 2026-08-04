@@ -1,6 +1,6 @@
 {
 	"luci-app-homeproxy": {
-		"description": "Grant access to homeproxy configuration",
+		"description": "Grant access to homeproxy configuration (v2: adds sing-box-core.json read)",
 		"read": {
 			"file": {
 				"/etc/homeproxy/scripts/update_subscriptions.uc": [ "exec" ],
@@ -9,11 +9,13 @@
 				"/etc/homeproxy/custom/.subscriptions/*": [ "read", "list" ],
 				"/var/run/homeproxy/homeproxy.log": [ "read" ],
 				"/var/run/homeproxy/sing-box-c.log": [ "read" ],
-				"/var/run/homeproxy/sing-box-s.log": [ "read" ]
+				"/var/run/homeproxy/sing-box-s.log": [ "read" ],
+				"/var/run/homeproxy/sing-box-core.json": [ "read" ]
 			},
 			"ubus": {
 				"service": [ "list" ],
-				"luci.homeproxy": [ "*" ]
+				"luci.homeproxy": [ "*" ],
+				"rc": [ "init" ]
 			},
 			"uci": [ "homeproxy" ]
 		},

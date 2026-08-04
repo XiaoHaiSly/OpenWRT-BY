@@ -1125,7 +1125,7 @@ msgstr "IPv6 支持"
 
 #: htdocs/luci-static/resources/view/homeproxy/client.js:410
 msgid "Auto Restart"
-msgstr "自动重启"
+msgstr "定时重启"
 
 #: htdocs/luci-static/resources/view/homeproxy/client.js:411
 msgid "Periodically restart the HomeProxy service."
@@ -3149,10 +3149,6 @@ msgstr "尚未选择核心配置文件。"
 msgid "Failed to parse the core config file as JSON."
 msgstr "解析核心配置文件（JSON）失败。"
 
-#: htdocs/luci-static/resources/view/homeproxy/client.js:116
-msgid "\"experimental.clash_api.external_controller\" is not set in this core config, so there is no dashboard to open."
-msgstr "该核心配置文件未设置 “experimental.clash_api.external_controller”，因此没有可打开的面板。"
-
 #: htdocs/luci-static/resources/view/homeproxy/client.js:121
 msgid "Failed to open dashboard: %s"
 msgstr "打开面板失败：%s"
@@ -3169,17 +3165,45 @@ msgstr "核心配置文件"
 msgid "-- none --"
 msgstr "-- 无 --"
 
-#: htdocs/luci-static/resources/view/homeproxy/client.js:251
-msgid "Dashboard"
-msgstr "面板"
+#: htdocs/luci-static/resources/view/homeproxy/client.js:264
+msgid "Restart service"
+msgstr "重启服务"
+
+#: htdocs/luci-static/resources/view/homeproxy/client.js:265
+msgid "Restart the homeproxy service"
+msgstr "重启 homeproxy 服务"
+
+#: htdocs/luci-static/resources/view/homeproxy/client.js:102
+msgid "Failed to restart the homeproxy service: %s"
+msgstr "重启 homeproxy 服务失败:%s"
 
 #: htdocs/luci-static/resources/view/homeproxy/client.js:228
 msgid "Open dashboard"
 msgstr "打开面板"
 
+#: htdocs/luci-static/resources/view/homeproxy/client.js:338
+msgid "Actions"
+msgstr "操作"
+
 #: htdocs/luci-static/resources/view/homeproxy/node.js:1464
 msgid "Core Config"
 msgstr "核心配置"
+
+#: htdocs/luci-static/resources/view/homeproxy/node.js:1648
+msgid "Core Config Editor"
+msgstr "配置编辑器"
+
+#: htdocs/luci-static/resources/view/homeproxy/node.js:1661
+msgid "Subscription: %s"
+msgstr "订阅：%s"
+
+#: htdocs/luci-static/resources/view/homeproxy/node.js:1665
+msgid "Choose File"
+msgstr "选择文件"
+
+#: htdocs/luci-static/resources/view/homeproxy/node.js:1684
+msgid "File Content"
+msgstr "文件内容"
 
 #: htdocs/luci-static/resources/view/homeproxy/node.js:1466
 msgid "Upload Profile"

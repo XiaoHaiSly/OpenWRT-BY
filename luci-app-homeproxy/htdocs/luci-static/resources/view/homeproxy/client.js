@@ -85,7 +85,49 @@ function openDashboardUrl(apiPort, apiSecret) {
 	window.open(`http://${window.location.hostname}:${apiPort}/ui/?${params}`, '_blank');
 }
 
+/* uci.get() reflects the last actually-saved config, not whatever is
+ * currently (maybe unsaved) selected in the form widgets. That's
+ * exactly what we want here: the "Open dashboard"/"Restart service"
+ * row shows as soon as "Core only" is picked in the dropdown (CBI's
+ * depends() reacts to the live widget value), but the buttons should
+ * stay inert until "Core only" has actually been saved & applied -
+ * otherwise clicking them would act on a mode that isn't really
+ * running yet. */
+function isCoreOnlyActive() {
+	return uci.get('homeproxy', 'config', 'main_node') === 'core_only';
+}
+
+/* Same idea as clicking a disabled control: give the normal
+ * click/spinner feedback so the button doesn't feel broken, but don't
+ * actually do anything. */
+function noopFeedback() {
+	return new Promise((resolve) => setTimeout(resolve, 400));
+}
+
+const callRcInit = rpc.declare({
+	object: 'rc',
+	method: 'init',
+	params: ['name', 'action']
+});
+
+function restartService(refreshStatus) {
+	if (!isCoreOnlyActive())
+		return noopFeedback();
+
+	return callRcInit('homeproxy', 'restart').then(() => {
+		return new Promise((resolve) => setTimeout(resolve, 1500));
+	}).then(() => {
+		if (refreshStatus)
+			return refreshStatus();
+	}).catch((err) => {
+		ui.addNotification(null, E('p', _('Failed to restart the homeproxy service: %s').format(err)));
+	});
+}
+
 function openDashboard() {
+	if (!isCoreOnlyActive())
+		return noopFeedback();
+
 	const selection = uci.get('homeproxy', 'config', 'main_core_profile');
 	if (!selection) {
 		ui.addNotification(null, E('p', _('No core config file is selected yet.')));
@@ -103,7 +145,31 @@ function openDashboard() {
 		return;
 	}
 
-	return fs.read_direct(path, 'text').then((content) => {
+	/* sing-box has two ways to configure the Clash-compatible API/
+	 * dashboard, depending on version:
+	 *   - new (sing-box >= 1.12): a "services" array entry with
+	 *     "type": "api", using separate "listen"/"listen_port" fields
+	 *   - legacy: "experimental.clash_api.external_controller" as a
+	 *     combined "host:port" string
+	 * Check both so it doesn't matter which one the config uses. */
+	function extractApiConfig(conf) {
+		if (Array.isArray(conf?.services)) {
+			for (let svc of conf.services) {
+				if (svc && svc.type === 'api' && svc.listen_port)
+					return { port: svc.listen_port, secret: svc.secret };
+			}
+		}
+
+		const clash = conf?.experimental?.clash_api;
+		if (clash && clash.external_controller) {
+			const port = clash.external_controller.substring(clash.external_controller.lastIndexOf(':') + 1);
+			return { port: port, secret: clash.secret };
+		}
+
+		return null;
+	}
+
+	function openFromConfig(content) {
 		let conf;
 		try {
 			conf = JSON.parse(content);
@@ -111,13 +177,36 @@ function openDashboard() {
 			throw _('Failed to parse the core config file as JSON.');
 		}
 
-		const clash = conf?.experimental?.clash_api;
-		if (!clash || !clash.external_controller)
-			throw _('"experimental.clash_api.external_controller" is not set in this core config, so there is no dashboard to open.');
+		const api = extractApiConfig(conf);
+		if (!api) {
+			/* Not a real error - this core config just doesn't have a
+			 * dashboard/API set up. Treat it the same as clicking a
+			 * disabled control: no popup, just let the caller give the
+			 * normal spin/no-op feedback. */
+			let err = new Error('no dashboard configured');
+			err.silent = true;
+			throw err;
+		}
 
-		const apiPort = clash.external_controller.substring(clash.external_controller.lastIndexOf(':') + 1);
-		openDashboardUrl(apiPort, clash.secret);
+		openDashboardUrl(api.port, api.secret);
+	}
+
+	/* The init script writes the exact config sing-box was launched
+	 * with to /var/run/homeproxy/sing-box-core.json on every start, so
+	 * prefer that: it reflects whatever port is actually listening
+	 * right now, even if the file on disk has since been edited but
+	 * not applied yet. Fall back to the on-disk file if the runtime
+	 * copy doesn't exist (service never started, or startup fell back
+	 * to running the original file as-is - see the init script). */
+	return fs.read_direct('/var/run/homeproxy/sing-box-core.json', 'text').then((runtimeContent) => {
+		openFromConfig(runtimeContent);
+	}).catch(() => {
+		return fs.read_direct(path, 'text').then((content) => {
+			openFromConfig(content);
+		});
 	}).catch((err) => {
+		if (err && err.silent)
+			return;
 		ui.addNotification(null, E('p', _('Failed to open dashboard: %s').format(err)));
 	});
 }
@@ -164,18 +253,6 @@ return view.extend({
 			return L.resolveDefault(getServiceStatus()).then((res) => {
 				let view = document.getElementById('service_status');
 				if (view) view.innerHTML = renderStatus(res, features.version);
-
-				/* The "Open dashboard" button only makes sense while
-				 * the service is actually running in "Core only"
-				 * mode. Its static depends() already hides it for
-				 * every other main_node value; this only adds the
-				 * "is it running" condition on top, without fighting
-				 * that depends() logic. */
-				let dashboardRow = document.getElementById('cbi-homeproxy-config-_open_dashboard');
-				if (dashboardRow) {
-					let mainNode = uci.get('homeproxy', 'config', 'main_node');
-					dashboardRow.style.display = (res && mainNode === 'core_only') ? '' : 'none';
-				}
 
 				return res;
 			});
@@ -248,14 +325,6 @@ return view.extend({
 		o.depends('main_node', 'core_only');
 		o.rmempty = false;
 
-		o = s.taboption('routing', form.Button, '_open_dashboard', _('Dashboard'));
-		o.inputstyle = 'apply';
-		o.inputtitle = _('Open dashboard');
-		o.depends('main_node', 'core_only');
-		o.onclick = function() {
-			return openDashboard();
-		}
-
 		o = s.taboption('routing', form.ListValue, 'main_udp_node', _('Main UDP node'));
 		o.value('nil', _('Disable'));
 		o.value('same', _('Same as main node'));
@@ -263,27 +332,51 @@ return view.extend({
 		for (let i in proxy_nodes)
 			o.value(i, proxy_nodes[i]);
 		o.default = 'nil';
-		o.depends({'routing_mode': /^((?!custom).)+$/, 'proxy_mode': /^((?!redirect$).)+$/});
+		o.depends({'routing_mode': /^((?!custom).)+$/, 'proxy_mode': /^((?!redirect$).)+$/, 'main_node': /^((?!core_only).)+$/});
 		o.rmempty = false;
+
+		o = s.taboption('routing', form.Button, '_open_dashboard', _('Actions'));
+		o.inputstyle = 'apply';
+		o.inputtitle = _('Open dashboard');
+		o.depends('main_node', 'core_only');
+		o.onclick = function() {
+			return openDashboard();
+		}
+		o.renderWidget = function() {
+			let node = form.Button.prototype.renderWidget.apply(this, arguments);
+
+			let restartBtn = E('button', {
+				'class': 'cbi-button cbi-button-reset',
+				'title': _('Restart the homeproxy service'),
+				'click': ui.createHandlerFn(this, () => {
+					return restartService(refreshStatus);
+				}, this.option)
+			}, [ _('Restart service') ]);
+
+			return E('div', { 'style': 'display: flex; flex-wrap: wrap; align-items: center; gap: .5em; max-width: 100%' }, [
+				node,
+				restartBtn
+			]);
+		}
 
 		o = s.taboption('routing', hp.CBIStaticList, 'main_udp_urltest_nodes', _('URLTest nodes'),
 			_('List of nodes to test.'));
 		for (let i in proxy_nodes)
 			o.value(i, proxy_nodes[i]);
-		o.depends('main_udp_node', 'urltest');
+		o.depends({'main_udp_node': 'urltest', 'main_node': /^((?!core_only).)+$/});
 		o.rmempty = false;
 
 		o = s.taboption('routing', form.Value, 'main_udp_urltest_interval', _('Test interval'),
 			_('The test interval in seconds.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '180';
-		o.depends('main_udp_node', 'urltest');
+		o.depends({'main_udp_node': 'urltest', 'main_node': /^((?!core_only).)+$/});
 
 		o = s.taboption('routing', form.Value, 'main_udp_urltest_tolerance', _('Test tolerance'),
 			_('The test tolerance in milliseconds.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '50';
-		o.depends('main_udp_node', 'urltest');
+		o.depends({'main_udp_node': 'urltest', 'main_node': /^((?!core_only).)+$/});
 
 		o = s.taboption('routing', form.Value, 'dns_server', _('DNS server'),
 			_('Support UDP, TCP, DoH, DoQ, DoT. TCP protocol will be used if not specified.'));
@@ -297,7 +390,15 @@ return view.extend({
 		o.value('117.50.10.10', _('ThreatBook Public DNS (117.50.10.10)'));
 		o.default = '8.8.8.8';
 		o.rmempty = false;
-		o.depends({'routing_mode': 'custom', '!reverse': true});
+		/* Not "custom" routing mode, and not core_only (raw core config
+		 * doesn't go through this DNS setting at all). Expressed as one
+		 * OR'd depends() per allowed routing_mode value, each ANDed with
+		 * the main_node exclusion, since mixing '!reverse' with an extra
+		 * AND key would flip the wrong half of the condition. */
+		o.depends({'routing_mode': 'gfwlist', 'main_node': /^((?!core_only).)+$/});
+		o.depends({'routing_mode': 'bypass_mainland_china', 'main_node': /^((?!core_only).)+$/});
+		o.depends({'routing_mode': 'proxy_mainland_china', 'main_node': /^((?!core_only).)+$/});
+		o.depends({'routing_mode': 'global', 'main_node': /^((?!core_only).)+$/});
 		o.validate = function(section_id, value) {
 			if (section_id && !['wan'].includes(value)) {
 				if (!value)
@@ -330,7 +431,7 @@ return view.extend({
 		o.value('210.2.4.8', _('CNNIC Public DNS (210.2.4.8)'));
 		o.value('119.29.29.29', _('Tencent Public DNS (119.29.29.29)'));
 		o.value('117.50.10.10', _('ThreatBook Public DNS (117.50.10.10)'));
-		o.depends('routing_mode', 'bypass_mainland_china');
+		o.depends({'routing_mode': 'bypass_mainland_china', 'main_node': /^((?!core_only).)+$/});
 		o.default = '223.5.5.5';
 		o.rmempty = false;
 		o.validate = function(section_id, value) {
@@ -365,6 +466,7 @@ return view.extend({
 		o.value('global', _('Global'));
 		o.default = 'bypass_mainland_china';
 		o.rmempty = false;
+		o.depends({'main_node': /^((?!core_only).)+$/});
 		o.onchange = function(ev, section_id, value) {
 			if (section_id && value === 'custom')
 				this.map.save(null, true);
@@ -374,6 +476,7 @@ return view.extend({
 			_('Specify target ports to be proxied. Multiple ports must be separated by commas.'));
 		o.value('', _('All ports'));
 		o.value('common', _('Common ports only (bypass P2P traffic)'));
+		o.depends({'main_node': /^((?!core_only).)+$/});
 		o.validate = function(section_id, value) {
 			if (section_id && value && value !== 'common') {
 
@@ -402,10 +505,12 @@ return view.extend({
 		}
 		o.default = 'redirect_tproxy';
 		o.rmempty = false;
+		o.depends({'main_node': /^((?!core_only).)+$/});
 
 		o = s.taboption('routing', form.Flag, 'ipv6_support', _('IPv6 support'));
 		o.default = o.enabled;
 		o.rmempty = false;
+		o.depends({'main_node': /^((?!core_only).)+$/});
 
 		o = s.taboption('routing', form.Flag, 'auto_restart', _('Auto Restart'),
 			_('Periodically restart the HomeProxy service.'));
@@ -427,7 +532,7 @@ return view.extend({
 		/* Custom routing settings start */
 		/* Routing settings start */
 		o = s.taboption('routing', form.SectionValue, '_routing', form.NamedSection, 'routing', 'homeproxy');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		so = ss.option(form.ListValue, 'tcpip_stack', _('TCP/IP stack'),
@@ -521,7 +626,7 @@ return view.extend({
 		/* Routing nodes start */
 		s.tab('routing_node', _('Routing Nodes'));
 		o = s.taboption('routing_node', form.SectionValue, '_routing_node', form.GridSection, 'routing_node');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		ss.addremove = true;
@@ -692,7 +797,7 @@ return view.extend({
 		/* Routing rules start */
 		s.tab('routing_rule', _('Routing Rules'));
 		o = s.taboption('routing_rule', form.SectionValue, '_routing_rule', form.GridSection, 'routing_rule');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		ss.addremove = true;
@@ -997,7 +1102,7 @@ return view.extend({
 		/* DNS settings start */
 		s.tab('dns', _('DNS Settings'));
 		o = s.taboption('dns', form.SectionValue, '_dns', form.NamedSection, 'dns', 'homeproxy');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		so = ss.option(form.ListValue, 'default_strategy', _('Default DNS strategy'),
@@ -1049,7 +1154,7 @@ return view.extend({
 		/* DNS servers start */
 		s.tab('dns_server', _('DNS Servers'));
 		o = s.taboption('dns_server', form.SectionValue, '_dns_server', form.GridSection, 'dns_server');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		ss.addremove = true;
@@ -1172,7 +1277,7 @@ return view.extend({
 		/* DNS rules start */
 		s.tab('dns_rule', _('DNS Rules'));
 		o = s.taboption('dns_rule', form.SectionValue, '_dns_rule', form.GridSection, 'dns_rule');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		ss.addremove = true;
@@ -1436,7 +1541,7 @@ return view.extend({
 		/* Rule set settings start */
 		s.tab('ruleset', _('Rule Set'));
 		o = s.taboption('ruleset', form.SectionValue, '_ruleset', form.GridSection, 'ruleset');
-		o.depends('routing_mode', 'custom');
+		o.depends({'routing_mode': 'custom', 'main_node': /^((?!core_only).)+$/});
 
 		ss = o.subsection;
 		ss.addremove = true;
