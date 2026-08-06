@@ -5,14 +5,17 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sing-box
-PKG_UPSTREAM_VERSION:=1.13.16
-PKG_VERSION:=1.13.16
+PKG_UPSTREAM_VERSION:=1.14.0-beta.7-reF1nd
+PKG_VERSION:=1.14.0-beta.7-reF1nd
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_UPSTREAM_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/SagerNet/sing-box/tar.gz/v$(PKG_UPSTREAM_VERSION)?
-PKG_HASH:=5d8201669387d0caded7a22c71682b3c025afef7bac8704cceabed52ea8bde5d
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_UPSTREAM_VERSION)
+PKG_SOURCE_URL:=https://github.com/reF1nd/sing-box.git
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_VERSION:=baf7d3bb796716d85bb7a1d23ed2cc4925810c26
+PKG_SOURCE_DATE:=2026-08-05
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_SOURCE_VERSION).tar.gz
+PKG_MIRROR_HASH:=skip
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_SOURCE_VERSION)
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE
@@ -30,7 +33,9 @@ PKG_CONFIG_DEPENDS:= \
 	CONFIG_SING_BOX_TINY_BUILD_TAILSCALE \
 	CONFIG_SING_BOX_TINY_BUILD_UTLS \
 	CONFIG_SING_BOX_TINY_BUILD_V2RAY_API \
-	CONFIG_SING_BOX_TINY_BUILD_WIREGUARD
+	CONFIG_SING_BOX_TINY_BUILD_WIREGUARD \
+	CONFIG_SING_BOX_TINY_BUILD_NAIVE_OUTBOUND \
+	CONFIG_SING_BOX_TINY_BUILD_CLOUDFLARED
 
 PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1
@@ -47,8 +52,8 @@ define Package/sing-box/Default
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=Web Servers/Proxies
-  TITLE:=The universal proxy platform
-  URL:=https://sing-box.sagernet.org/
+  TITLE:=The universal proxy platform (reF1nd testing)
+  URL:=https://github.com/reF1nd/sing-box
   DEPENDS:=+ca-bundle +kmod-inet-diag
   USERID:=sing-box=5566:sing-box=5566
 endef
@@ -65,6 +70,8 @@ endef
 define Package/sing-box/description
   Sing-box is a universal proxy platform which supports hysteria, SOCKS, Shadowsocks,
   ShadowTLS, Tor, trojan, VLess, VMess, WireGuard and so on.
+  This build is based on the reF1nd/sing-box fork (reF1nd-testing branch), which tracks
+  upstream sing-box pre-release versions plus extra outbound/inbound features.
 endef
 
 define Package/sing-box/config
@@ -127,11 +134,18 @@ define Package/sing-box-tiny/config
     config SING_BOX_TINY_BUILD_WIREGUARD
     bool "Build with WireGuard support"
     default y if aarch64||arm||i386||x86_64
+
+    config SING_BOX_TINY_BUILD_NAIVE_OUTBOUND
+    bool "Build with NaiveProxy outbound support (reF1nd)"
+    default y
+
+    config SING_BOX_TINY_BUILD_CLOUDFLARED
+    bool "Build with Cloudflare Tunnel inbound support (reF1nd)"
   endif
 endef
 
 ifeq ($(BUILD_VARIANT),full)
-  GO_PKG_TAGS:=with_acme,with_clash_api,with_dhcp,with_gvisor,with_quic,with_tailscale,with_utls,with_wireguard
+  GO_PKG_TAGS:=with_acme,with_clash_api,with_dhcp,with_gvisor,with_quic,with_tailscale,with_utls,with_wireguard,with_ccm,with_ocm,with_cloudflared,with_naive_outbound,with_usbip,with_openvpn,with_openconnect,badlinkname,tfogo_checklinkname0
 else
   GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
 	$(if $(CONFIG_SING_BOX_TINY_BUILD_ACME),with_acme) \
