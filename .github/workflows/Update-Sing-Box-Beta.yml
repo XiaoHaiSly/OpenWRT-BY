@@ -1,4 +1,4 @@
-name: 每日检查并更新 Sing-Box 测试版
+name: Sing-Box 测试版检查同步
 
 on:
   workflow_dispatch:
