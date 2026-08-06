@@ -39,7 +39,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # 抄过来的逻辑：只过滤草稿 draft，正式版和 Beta/RC 等测试版都能拉取
           upstream_tag="$(gh api 'repos/SagerNet/sing-box/releases?per_page=30' \
             --jq '[.[] | select(.draft == false)][0].tag_name')"
 
