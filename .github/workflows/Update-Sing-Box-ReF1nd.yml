@@ -130,5 +130,5 @@ jobs:
 
           ci_commit_and_push \
             "$PACKAGE_BRANCH" \
-            "chore: 更新 Sing-Box (reF1nd 正式版) 至 ${UPSTREAM_VERSION}-r1" \
+            "chore: 更新 Sing-Box-reF1nd 至 ${UPSTREAM_VERSION}-r1" \
             sing-box/Makefile
