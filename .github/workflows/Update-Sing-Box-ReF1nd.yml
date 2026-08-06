@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PACKAGE_BRANCH: reF1nd
+  PACKAGE_BRANCH: master
 
 jobs:
   update:
