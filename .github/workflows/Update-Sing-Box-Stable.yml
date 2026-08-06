@@ -39,8 +39,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # 仅获取正式版 Release
-          # 跳过 Beta / Alpha / RC 等预发布版本
           upstream_tag="$(gh api 'repos/SagerNet/sing-box/releases?per_page=30' \
             --jq '[.[] | select(.draft == false and .prerelease == false)][0].tag_name')"
 
