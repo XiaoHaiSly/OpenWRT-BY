@@ -3,7 +3,6 @@ name: Sing-Box ReF1nd检查同步
 on:
   workflow_dispatch:
   schedule:
-    # 中国时间 02:20（错开原版 Update-Sing-Box.yml 的 02:15，避免并发冲突）
     - cron: '20 18 * * *'
 
 permissions:
@@ -69,7 +68,6 @@ jobs:
           changelog="$(curl -fsSL --retry 3 \
             "https://raw.githubusercontent.com/reF1nd/sing-box/$NEW_SHA/docs/changelog.md")"
 
-          # changelog 第一条 "#### x.y.z" 即为当前版本号
           base_version="$(grep -m1 -oP '^####\s+\K[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?' <<<"$changelog")"
 
           if [[ -z "$base_version" ]]; then
