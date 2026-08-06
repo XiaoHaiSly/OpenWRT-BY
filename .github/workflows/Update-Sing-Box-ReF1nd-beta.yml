@@ -1,40 +1,35 @@
-name: Sing-Box(reF1nd 测试)
+name: Sing-Box 核心 (reF1nd 测试版)
 
 on:
   workflow_dispatch:
   schedule:
-    # 中国时间 02:20（错开原版 Update-Sing-Box.yml 的 02:15，避免并发冲突）
-    - cron: '20 18 * * *'
+    - cron: '25 18 * * *'
 
 permissions:
   contents: write
 
 concurrency:
-  group: repository-maintenance-ref1nd
+  group: repository-maintenance-ref1nd-testing
   cancel-in-progress: false
 
 env:
-  # 本 workflow 固定只维护 reF1nd 分支，不动默认分支/原版内核
-  PACKAGE_BRANCH: reF1nd
+  PACKAGE_BRANCH: reF1nd-testing
 
 jobs:
   update:
-    name: 检查并更新 Sing-Box 核心
+    name: 检查并更新 Sing-Box 核心 (测试版)
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      # 这里用默认分支签出仓库脚本本体（.github/scripts 等），
-      # 因为 schedule 定时触发只会读取默认分支上的 workflow 文件。
-      # 实际内容会在下一步 ci_sync_branch 里切换成 reF1nd 分支。
       - name: 检出软件包仓库
         uses: actions/checkout@main
         with:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: 同步 reF1nd 分支
+      - name: 同步 reF1nd 测试分支
         run: |
           source .github/scripts/ci-common.sh
           ci_sync_branch "$PACKAGE_BRANCH"
@@ -43,9 +38,6 @@ jobs:
         id: upstream
         run: |
           makefile='sing-box/Makefile'
-
-          # 直接跟踪 reF1nd/sing-box 仓库的 reF1nd-testing 分支最新 commit
-          # （这个分支没有稳定发布 tag，滚动更新，所以不走 releases API）
           commit_json="$(gh api repos/reF1nd/sing-box/commits/reF1nd-testing)"
 
           new_sha="$(jq -r '.sha' <<<"$commit_json")"
