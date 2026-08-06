@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PACKAGE_BRANCH: reF1nd-testing
+  PACKAGE_BRANCH: master-beta
 
 jobs:
   update:
