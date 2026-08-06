@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PACKAGE_BRANCH: beta
+  PACKAGE_BRANCH: main-beta
 
 jobs:
   update:
