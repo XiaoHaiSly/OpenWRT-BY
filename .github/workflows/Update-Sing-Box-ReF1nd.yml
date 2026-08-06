@@ -1,4 +1,4 @@
-name: Sing-Box ref1nd检查同步
+name: Sing-Box ReF1nd检查同步
 
 on:
   workflow_dispatch:
