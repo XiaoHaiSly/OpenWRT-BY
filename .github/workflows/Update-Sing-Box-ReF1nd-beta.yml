@@ -1,4 +1,4 @@
-name: Sing-Box 核心 (reF1nd 测试版)
+name: Sing-Box ref1nd测试版检查同步
 
 on:
   workflow_dispatch:
