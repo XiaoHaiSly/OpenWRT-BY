@@ -5,8 +5,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sing-box
-PKG_UPSTREAM_VERSION:=1.14.0-beta.7-reF1nd
-PKG_VERSION:=1.14.0-beta.7-reF1nd
+PKG_UPSTREAM_VERSION:=1.12.0-beta.7-reF1nd
+PKG_VERSION:=1.12.0-beta.7-reF1nd
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=https://github.com/reF1nd/sing-box.git
