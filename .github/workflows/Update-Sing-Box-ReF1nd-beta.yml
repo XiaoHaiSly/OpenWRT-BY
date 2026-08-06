@@ -3,7 +3,7 @@ name: Sing-Box ReF1nd测试版检查同步
 on:
   workflow_dispatch:
   schedule:
-    - cron: '25 18 * * *'
+    - cron: '30 18 * * *'
 
 permissions:
   contents: write
