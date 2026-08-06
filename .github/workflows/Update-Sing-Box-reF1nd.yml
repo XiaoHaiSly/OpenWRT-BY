@@ -40,7 +40,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # 获取最新 Release，包含 Beta / Alpha / RC 等预发布版本
           upstream_tag="$(gh api 'repos/reF1nd/sing-box/releases?per_page=30' \
             --jq '[.[] | select(.draft == false)][0].tag_name')"
 
@@ -53,7 +52,7 @@ jobs:
 
           if [[ "$current_version" == "$upstream_version" ]]; then
             changed=false
-            echo "Sing-Box 已是最新测试版：$upstream_version"
+            echo "Sing-Box 已是最新版：$upstream_version"
           fi
 
           {
