@@ -1,4 +1,4 @@
-name: 每日检查并更新 Sing-Box 核心 (reF1nd 正式版)
+name: Sing-Box ref1nd版检查同步
 
 on:
   workflow_dispatch:
