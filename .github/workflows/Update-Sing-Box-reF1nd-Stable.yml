@@ -1,4 +1,4 @@
-name: Sing-Box reF1nd最新版检查同步
+name: Sing-Box reF1nd正式版检查同步
 
 on:
   workflow_dispatch:
@@ -40,8 +40,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # 仅获取正式版 Release
-          # 跳过 Beta / Alpha / RC 等预发布版本
           upstream_tag="$(gh api 'repos/reF1nd/sing-box/releases?per_page=30' \
             --jq '[.[] | select(.draft == false and .prerelease == false)][0].tag_name')"
 
