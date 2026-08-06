@@ -1,4 +1,4 @@
-name: 每日检查并更新 Sing-Box 核心 (reF1nd 分支)
+name: 每日检查并更新 Sing-Box 核心 (reF1nd 正式版)
 
 on:
   workflow_dispatch:
@@ -14,7 +14,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # 本 workflow 固定只维护 reF1nd 分支，不动默认分支/原版内核
   PACKAGE_BRANCH: reF1nd
 
 jobs:
@@ -25,9 +24,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      # 这里用默认分支签出仓库脚本本体（.github/scripts 等），
-      # 因为 schedule 定时触发只会读取默认分支上的 workflow 文件。
-      # 实际内容会在下一步 ci_sync_branch 里切换成 reF1nd 分支。
       - name: 检出软件包仓库
         uses: actions/checkout@main
         with:
@@ -39,14 +35,11 @@ jobs:
           source .github/scripts/ci-common.sh
           ci_sync_branch "$PACKAGE_BRANCH"
 
-      - name: 检查 reF1nd/sing-box testing 分支最新提交
+      - name: 检查 reF1nd/sing-box 正式分支最新提交
         id: upstream
         run: |
           makefile='sing-box/Makefile'
-
-          # 直接跟踪 reF1nd/sing-box 仓库的 reF1nd-testing 分支最新 commit
-          # （这个分支没有稳定发布 tag，滚动更新，所以不走 releases API）
-          commit_json="$(gh api repos/reF1nd/sing-box/commits/reF1nd-testing)"
+          commit_json="$(gh api repos/reF1nd/sing-box/commits/reF1nd)"
 
           new_sha="$(jq -r '.sha' <<<"$commit_json")"
           new_date="$(jq -r '.commit.committer.date' <<<"$commit_json" | cut -d'T' -f1)"
@@ -58,7 +51,7 @@ jobs:
           changed=true
           if [[ "$current_sha" == "$new_sha" ]]; then
             changed=false
-            echo "sing-box 已是 reF1nd-testing 最新提交：$new_sha"
+            echo "sing-box 已是 reF1nd 正式分支最新提交：$new_sha"
           fi
 
           {
@@ -137,5 +130,5 @@ jobs:
 
           ci_commit_and_push \
             "$PACKAGE_BRANCH" \
-            "chore: 更新 Sing-Box (reF1nd-testing) 至 ${UPSTREAM_VERSION}-r1" \
+            "chore: 更新 Sing-Box (reF1nd 正式版) 至 ${UPSTREAM_VERSION}-r1" \
             sing-box/Makefile
