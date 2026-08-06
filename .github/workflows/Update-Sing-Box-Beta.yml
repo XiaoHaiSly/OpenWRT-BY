@@ -3,7 +3,7 @@ name: Sing-Box 测试版检查同步
 on:
   workflow_dispatch:
   schedule:
-    # 中国时间 02:30
+    # 中国时间 02:10
     - cron: '10 18 * * *'
 
 permissions:
