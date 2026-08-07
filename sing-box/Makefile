@@ -3,11 +3,18 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sing-box
-PKG_VERSION:=1.14.0-beta.8-reF1nd
+# PKG_VERSION 必须是 apk 认可的合法格式：<major>.<minor>.<fixup>[_alpha|_beta|_rc<N>]
+# 不能直接塞 reF1nd 上游 tag 里的 "-beta.8-reF1nd" 这类自定义后缀，
+# 否则 apk mkpkg 会报 "package version is invalid"
+PKG_VERSION:=1.14.0_beta8
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/reF1nd/sing-box/tar.gz/v$(PKG_VERSION)?
+# PKG_SOURCE_VERSION 保留原始上游 tag（去掉 v 前缀），仅用于拼下载地址
+# 和编译期版本字符串展示，不参与 apk 包版本校验
+PKG_SOURCE_VERSION:=1.14.0-beta.8-reF1nd
+
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_SOURCE_VERSION).tar.gz
+PKG_SOURCE_URL:=https://codeload.github.com/reF1nd/sing-box/tar.gz/v$(PKG_SOURCE_VERSION)?
 PKG_HASH:=1e8deada998853a42b8a02bbdeb52442175ab58332550fad205ac3282242de94
 
 PKG_LICENSE:=GPL-3.0-or-later
@@ -32,7 +39,7 @@ PKG_USE_MIPS16:=0
 
 GO_PKG:=github.com/sagernet/sing-box
 GO_PKG_BUILD_PKG:=$(GO_PKG)/cmd/sing-box
-GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_VERSION)
+GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_SOURCE_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
