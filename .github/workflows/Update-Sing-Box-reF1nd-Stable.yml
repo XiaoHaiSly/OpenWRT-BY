@@ -52,9 +52,22 @@ jobs:
             exit 1
           fi
 
-          [[ "$upstream_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)*$ ]]
+          # 解析 tag: v<major.minor.patch>-reF1nd(.<n>)?
+          if [[ ! "$upstream_tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-reF1nd(\.([0-9]+))?$ ]]; then
+            echo "无法解析 tag 格式：$upstream_tag" >&2
+            exit 1
+          fi
+          base_version="${BASH_REMATCH[1]}"
+          ref_num="${BASH_REMATCH[3]:-1}"
 
-          upstream_version="${upstream_tag#v}"
+          # apk 要求 PKG_VERSION 只能是 <major>.<minor>.<fixup>[.<subN>...]，
+          # 不能带 -reF1nd 这类自定义后缀，否则 apk mkpkg 会报
+          # "package version is invalid"
+          upstream_version="$base_version"
+          upstream_release="$ref_num"
+          # 原始 tag（去掉 v 前缀），仅用于下载源码和版本字符串展示
+          upstream_source_version="${upstream_tag#v}"
+
           current_version="$(sed -n 's/^PKG_VERSION:=//p' "$makefile")"
 
           changed=true
@@ -68,6 +81,8 @@ jobs:
             echo "changed=$changed"
             echo "tag=$upstream_tag"
             echo "version=$upstream_version"
+            echo "release=$upstream_release"
+            echo "source_version=$upstream_source_version"
           } >> "$GITHUB_OUTPUT"
 
       - name: 下载并校验 Sing-Box reF1nd源码
@@ -91,20 +106,24 @@ jobs:
         env:
           SOURCE_HASH: ${{ steps.source.outputs.hash }}
           UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_RELEASE: ${{ steps.upstream.outputs.release }}
+          UPSTREAM_SOURCE_VERSION: ${{ steps.upstream.outputs.source_version }}
         run: |
           makefile='sing-box/Makefile'
 
-          # 该 Makefile 直接把 tag（去掉 v 前缀）原样存入 PKG_VERSION，
-          # PKG_SOURCE_URL 用 v$(PKG_VERSION) 拼回 tag 下载，无需转换、
-          # 也没有 PKG_UPSTREAM_VERSION 字段。
+          # PKG_VERSION 必须是 apk 合法格式（不能含 -reF1nd 这类自定义后缀），
+          # 原始上游 tag 存入 PKG_SOURCE_VERSION，专门给下载地址和
+          # 编译期版本字符串使用，两者互不影响。
           sed -i \
             -e "s/^PKG_VERSION:=.*/PKG_VERSION:=$UPSTREAM_VERSION/" \
-            -e 's/^PKG_RELEASE:=.*/PKG_RELEASE:=1/' \
+            -e "s/^PKG_RELEASE:=.*/PKG_RELEASE:=$UPSTREAM_RELEASE/" \
+            -e "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$UPSTREAM_SOURCE_VERSION/" \
             -e "s/^PKG_HASH:=.*/PKG_HASH:=$SOURCE_HASH/" \
             "$makefile"
 
           grep -Fx "PKG_VERSION:=$UPSTREAM_VERSION" "$makefile"
-          grep -Fx 'PKG_RELEASE:=1' "$makefile"
+          grep -Fx "PKG_RELEASE:=$UPSTREAM_RELEASE" "$makefile"
+          grep -Fx "PKG_SOURCE_VERSION:=$UPSTREAM_SOURCE_VERSION" "$makefile"
           grep -Fx "PKG_HASH:=$SOURCE_HASH" "$makefile"
 
           git diff --check
@@ -113,10 +132,12 @@ jobs:
         if: steps.upstream.outputs.changed == 'true'
         env:
           UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_RELEASE: ${{ steps.upstream.outputs.release }}
+          UPSTREAM_SOURCE_VERSION: ${{ steps.upstream.outputs.source_version }}
         run: |
           source .github/scripts/ci-common.sh
 
           ci_commit_and_push \
             "$PACKAGE_BRANCH" \
-            "chore: 更新 Sing-Box reF1nd至 ${UPSTREAM_VERSION}-r1" \
+            "chore: 更新 Sing-Box reF1nd至 ${UPSTREAM_VERSION}-r${UPSTREAM_RELEASE} (${UPSTREAM_SOURCE_VERSION})" \
             sing-box/Makefile
