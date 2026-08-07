@@ -40,10 +40,22 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          upstream_tag="$(gh api 'repos/reF1nd/sing-box/releases?per_page=30' \
-            --jq '[.[] | select(.draft == false)][0].tag_name')"
+          # reF1nd/sing-box 本身不发布 Release，只打 tag，因此改用 tags 接口
+          # 最新版需要包含 alpha/beta 预发布 tag，形如：
+          #   v1.13.14-reF1nd(.N)?
+          #   v1.14.0-alpha.50-reF1nd(.N)?
+          #   v1.14.0-beta.2-reF1nd(.N)?
+          upstream_tag="$(gh api 'repos/reF1nd/sing-box/tags?per_page=100' \
+            --jq '.[].name' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?-reF1nd(\.[0-9]+)?$' \
+            | sort -V | tail -n1)"
 
-          [[ "$upstream_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$ ]]
+          if [[ -z "$upstream_tag" ]]; then
+            echo "未找到 Sing-Box reF1nd tag" >&2
+            exit 1
+          fi
+
+          [[ "$upstream_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)*$ ]]
 
           upstream_version="${upstream_tag#v}"
           current_version="$(sed -n 's/^PKG_UPSTREAM_VERSION:=//p' "$makefile")"
@@ -85,14 +97,17 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          if [[ "$UPSTREAM_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-([A-Za-z]+)\.([0-9]+)$ ]]; then
-            package_version="${BASH_REMATCH[1]}_${BASH_REMATCH[2],,}${BASH_REMATCH[3]}"
-          elif [[ "$UPSTREAM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            package_version="$UPSTREAM_VERSION"
-          else
+          # 最新版 tag 格式多样，例如：
+          #   1.13.14-reF1nd / 1.13.14-reF1nd.1
+          #   1.14.0-alpha.50-reF1nd / 1.14.0-alpha.46-reF1nd.1
+          #   1.14.0-beta.2-reF1nd
+          # OpenWrt PKG_VERSION 不能含 '-'，此处统一转小写并将 '-' 替换为 '_'
+          if [[ ! "$UPSTREAM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)*$ ]]; then
             printf '无法转换 Sing-Box 版本号：%s\n' "$UPSTREAM_VERSION" >&2
             exit 1
           fi
+
+          package_version="$(tr '[:upper:]' '[:lower:]' <<<"$UPSTREAM_VERSION" | tr '-' '_')"
 
           sed -i \
             -e "s/^PKG_UPSTREAM_VERSION:=.*/PKG_UPSTREAM_VERSION:=$UPSTREAM_VERSION/" \
