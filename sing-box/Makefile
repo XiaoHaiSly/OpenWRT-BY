@@ -6,16 +6,16 @@ PKG_NAME:=sing-box
 # PKG_VERSION 必须是 apk 认可的合法格式：<major>.<minor>.<fixup>[_alpha|_beta|_rc<N>]
 # 不能直接塞 reF1nd 上游 tag 里的 "-beta.8-reF1nd" 这类自定义后缀，
 # 否则 apk mkpkg 会报 "package version is invalid"
-PKG_VERSION:=1.14.0_beta8
+PKG_VERSION:=1.13.16
 PKG_RELEASE:=1
 
 # PKG_SOURCE_VERSION 保留原始上游 tag（去掉 v 前缀），仅用于拼下载地址
 # 和编译期版本字符串展示，不参与 apk 包版本校验
-PKG_SOURCE_VERSION:=1.14.0-beta.8-reF1nd
+PKG_SOURCE_VERSION:=1.13.16-reF1nd
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/reF1nd/sing-box/tar.gz/v$(PKG_SOURCE_VERSION)?
-PKG_HASH:=1e8deada998853a42b8a02bbdeb52442175ab58332550fad205ac3282242de94
+PKG_HASH:=cff972cc7e84f2d73a202715c16af4e71232e1f6f090f84c0c9c7c7ebceed905
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE
