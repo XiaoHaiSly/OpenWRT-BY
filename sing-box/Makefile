@@ -11,6 +11,7 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/reF1nd/sing-box/tar.gz/v$(PKG_SOURCE_VERSION)?
 PKG_HASH:=1e8deada998853a42b8a02bbdeb52442175ab58332550fad205ac3282242de94
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_SOURCE_VERSION)
+
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Tianling Shen <cnsztl@immortalwrt.org>
@@ -55,6 +56,11 @@ define Package/sing-box/description
   Sing-box is a universal proxy platform supporting various protocols.
 endef
 
+define Package/sing-box/conffiles
+/etc/config/sing-box
+/etc/sing-box/
+endef
+
 define Package/sing-box/config
   if PACKAGE_sing-box
 	config SING_BOX_BUILD_ACME
@@ -67,7 +73,7 @@ define Package/sing-box/config
 
 	config SING_BOX_BUILD_DHCP
 		bool "Build with DHCP support"
-		default n
+		default y
 
 	config SING_BOX_BUILD_GRPC
 		bool "Build with gPRC support"
@@ -121,7 +127,14 @@ endef
 define Package/sing-box/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/sing-box $(1)/usr/bin/sing-box
+
 	$(INSTALL_DIR) $(1)/etc/sing-box
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box
+
+	$(INSTALL_DIR) $(1)/etc/config/
+	$(INSTALL_CONF) ./files/sing-box.conf $(1)/etc/config/sing-box
+	$(INSTALL_DIR) $(1)/etc/init.d/
+	$(INSTALL_BIN) ./files/sing-box.init $(1)/etc/init.d/sing-box
 endef
 
 $(eval $(call BuildPackage,sing-box))
