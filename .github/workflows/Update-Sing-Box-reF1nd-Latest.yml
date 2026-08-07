@@ -3,7 +3,6 @@ name: Sing-Box reF1nd最新版检查同步
 on:
   workflow_dispatch:
   schedule:
-    # 中国时间 02:30
     - cron: '30 23 * * *'
 
 permissions:
@@ -40,11 +39,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # reF1nd/sing-box 本身不发布 Release，只打 tag，因此改用 tags 接口
-          # 最新版需要包含 alpha/beta 预发布 tag，形如：
-          #   v1.13.14-reF1nd(.N)?
-          #   v1.14.0-alpha.50-reF1nd(.N)?
-          #   v1.14.0-beta.2-reF1nd(.N)?
           upstream_tag="$(gh api 'repos/reF1nd/sing-box/tags?per_page=100' \
             --jq '.[].name' \
             | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?-reF1nd(\.[0-9]+)?$' \
@@ -55,7 +49,6 @@ jobs:
             exit 1
           fi
 
-          # 解析 tag: v<major.minor.patch>(-<alpha|beta|rc>.<n>)?-reF1nd(.<n>)?
           if [[ ! "$upstream_tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta|rc)\.([0-9]+))?-reF1nd(\.([0-9]+))?$ ]]; then
             echo "无法解析 tag 格式：$upstream_tag" >&2
             exit 1
@@ -65,15 +58,12 @@ jobs:
           pre_num="${BASH_REMATCH[4]}"
           ref_num="${BASH_REMATCH[6]:-1}"
 
-          # apk 只认 _alpha/_beta/_rc 这类固定后缀，不能直接塞 reF1nd 字符串，
-          # 否则会导致 apk mkpkg 报 "package version is invalid"
           if [[ -n "$pre_type" ]]; then
             upstream_version="${base_version}_${pre_type}${pre_num}"
           else
             upstream_version="$base_version"
           fi
           upstream_release="$ref_num"
-          # 原始 tag（去掉 v 前缀），仅用于下载源码和版本字符串展示
           upstream_source_version="${upstream_tag#v}"
 
           current_version="$(sed -n 's/^PKG_VERSION:=//p' "$makefile")"
@@ -119,9 +109,6 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          # PKG_VERSION 必须是 apk 合法格式（不能含 -reF1nd 这类自定义后缀），
-          # 原始上游 tag 存入 PKG_SOURCE_VERSION，专门给下载地址和
-          # 编译期版本字符串使用，两者互不影响。
           sed -i \
             -e "s/^PKG_VERSION:=.*/PKG_VERSION:=$UPSTREAM_VERSION/" \
             -e "s/^PKG_RELEASE:=.*/PKG_RELEASE:=$UPSTREAM_RELEASE/" \
