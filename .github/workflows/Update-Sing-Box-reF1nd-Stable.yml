@@ -55,7 +55,7 @@ jobs:
           [[ "$upstream_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)*$ ]]
 
           upstream_version="${upstream_tag#v}"
-          current_version="$(sed -n 's/^PKG_UPSTREAM_VERSION:=//p' "$makefile")"
+          current_version="$(sed -n 's/^PKG_VERSION:=//p' "$makefile")"
 
           changed=true
 
@@ -94,26 +94,16 @@ jobs:
         run: |
           makefile='sing-box/Makefile'
 
-          if [[ "$UPSTREAM_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-reF1nd\.([0-9]+)$ ]]; then
-            package_version="${BASH_REMATCH[1]}_ref1nd${BASH_REMATCH[2]}"
-          elif [[ "$UPSTREAM_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-reF1nd$ ]]; then
-            package_version="${BASH_REMATCH[1]}_ref1nd"
-          elif [[ "$UPSTREAM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            package_version="$UPSTREAM_VERSION"
-          else
-            printf '无法转换 Sing-Box 版本号：%s\n' "$UPSTREAM_VERSION" >&2
-            exit 1
-          fi
-
+          # 该 Makefile 直接把 tag（去掉 v 前缀）原样存入 PKG_VERSION，
+          # PKG_SOURCE_URL 用 v$(PKG_VERSION) 拼回 tag 下载，无需转换、
+          # 也没有 PKG_UPSTREAM_VERSION 字段。
           sed -i \
-            -e "s/^PKG_UPSTREAM_VERSION:=.*/PKG_UPSTREAM_VERSION:=$UPSTREAM_VERSION/" \
-            -e "s/^PKG_VERSION:=.*/PKG_VERSION:=$package_version/" \
+            -e "s/^PKG_VERSION:=.*/PKG_VERSION:=$UPSTREAM_VERSION/" \
             -e 's/^PKG_RELEASE:=.*/PKG_RELEASE:=1/' \
             -e "s/^PKG_HASH:=.*/PKG_HASH:=$SOURCE_HASH/" \
             "$makefile"
 
-          grep -Fx "PKG_UPSTREAM_VERSION:=$UPSTREAM_VERSION" "$makefile"
-          grep -Fx "PKG_VERSION:=$package_version" "$makefile"
+          grep -Fx "PKG_VERSION:=$UPSTREAM_VERSION" "$makefile"
           grep -Fx 'PKG_RELEASE:=1' "$makefile"
           grep -Fx "PKG_HASH:=$SOURCE_HASH" "$makefile"
 
